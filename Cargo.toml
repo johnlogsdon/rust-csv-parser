@@ -2,6 +2,12 @@
 name = "rust_csv_parser"
 version = "0.1.0"
 edition = "2024"
+authors = ["Your Name <your-email@example.com>"]
+description = "A high-performance, memory-efficient CSV parser written in Rust that processes data in chunks for optimal performance with large files"
+license = "MIT"
+repository = "https://github.com/yourusername/rust-csv-parser"
+keywords = ["csv", "parser", "streaming", "performance"]
+categories = ["parsing", "text-processing"]
 
 [dependencies]
 memory-stats = "1.2.0"
