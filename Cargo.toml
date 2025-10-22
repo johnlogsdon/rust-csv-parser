@@ -1,0 +1,15 @@
+[package]
+name = "rust_csv_parser"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+memory-stats = "1.2.0"
+num_cpus = "1.16"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "parser_stability"
+harness = false # Required to customize the benchmark setup
