@@ -560,10 +560,6 @@ impl CsvChunkParser {
 }
 
 
-// --- MAIN FUNCTION (Removed for library crate) ---
-// fn main() {} 
-
-
 // --- UNIT TESTS (Idiomatic Rust Convention) ---
 #[cfg(test)]
 mod tests {
@@ -722,14 +718,66 @@ mod tests {
         // Config: quote='\"', escape='\\'
         let config = CsvConfig { delimiter: ',', quote: '"', escape: '\\' };
         // The literal Rust string below represents: A,"Value with \"Escaped\" Quote",B\n
-        let chunks = vec!["A,\"Value with \\\"Escaped\\\" Quote\",B\n"]; 
+        let chunks = vec!["A,\"Value with \\\"Escaped\\\" Quote\",B\n"];
         let rows = parse_streaming_full(&chunks, config)?;
 
         let expected_field2 = "Value with \"Escaped\" Quote".to_string();
-        
+
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0], vec!["A", &expected_field2, "B"]);
         Ok(())
+    }
+
+    #[test]
+    fn test_utf8_handling() -> Result<(), CsvError> {
+        let config = CsvConfig::default();
+
+        // Test various UTF-8 characters: emojis, accented chars, symbols
+        let chunks = vec![
+            "Hello,🌟,café,ñoño,тест\n",  // Emojis, accented chars, Cyrillic
+            "\"Field with 🌟 emoji\",normal,\"🎉🎊\"\n",  // Quoted fields with emojis
+        ];
+
+        let rows = parse_streaming_full(&chunks, config)?;
+
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0], vec!["Hello", "🌟", "café", "ñoño", "тест"]);
+        assert_eq!(rows[1], vec!["Field with 🌟 emoji", "normal", "🎉🎊"]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_utf8_multibyte_chars() -> Result<(), CsvError> {
+        let config = CsvConfig::default();
+
+        // Test characters that use different byte lengths in UTF-8
+        let chunks = vec![
+            "a,é,€,𝄞,🎵\n",  // 1, 2, 3, 4, 4 byte UTF-8 sequences
+            "\"𝄞 G-clef\",\"🎵 music note\"\n",  // Multi-byte chars in quoted fields
+        ];
+
+        let rows = parse_streaming_full(&chunks, config)?;
+
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0], vec!["a", "é", "€", "𝄞", "🎵"]);
+        assert_eq!(rows[1], vec!["𝄞 G-clef", "🎵 music note"]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_utf8_error_handling() {
+        let config = CsvConfig::default();
+        let mut field_builder = FieldBuilder::new(&config);
+
+        // Create invalid UTF-8 bytes (0xFF is invalid UTF-8 start byte)
+        let invalid_utf8 = [0xFF, 0xFF];
+        field_builder.append_bytes(&invalid_utf8);
+
+        // finalize_field should return Utf8Error when trying to convert invalid UTF-8
+        let result = field_builder.finalize_field();
+        assert!(matches!(result, Err(CsvError::Utf8Error(_))));
     }
 
 }
