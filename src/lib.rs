@@ -73,7 +73,6 @@ pub enum CsvState {
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Action {
     AppendChar(char),
-    AppendBytes(&'static [u8]),
     AppendEscapedQuote,
     CommitField,
     CommitRow,
@@ -288,12 +287,6 @@ impl FieldBuilder {
 
 
     #[inline(always)]
-    fn append_bytes(&mut self, bytes: &[u8]) {
-        // Direct byte append - bypasses UTF-8 encoding overhead
-        self.buffer.extend_from_slice(bytes);
-    }
-
-    #[inline(always)]
     fn append_char(&mut self, ch: char) {
         // Proper UTF-8 encoding for characters
         let mut utf8_buf = [0u8; 4];
@@ -427,9 +420,6 @@ impl CsvChunkParser {
             match action {
                 Action::AppendChar(ch) => {
                     self.field_builder.append_char(ch);
-                },
-                Action::AppendBytes(bytes) => {
-                    self.field_builder.append_bytes(bytes);
                 },
                 Action::AppendEscapedQuote => {
                     self.field_builder.append_escaped_quote();
@@ -766,18 +756,5 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_utf8_error_handling() {
-        let config = CsvConfig::default();
-        let mut field_builder = FieldBuilder::new(&config);
-
-        // Create invalid UTF-8 bytes (0xFF is invalid UTF-8 start byte)
-        let invalid_utf8 = [0xFF, 0xFF];
-        field_builder.append_bytes(&invalid_utf8);
-
-        // finalize_field should return Utf8Error when trying to convert invalid UTF-8
-        let result = field_builder.finalize_field();
-        assert!(matches!(result, Err(CsvError::Utf8Error(_))));
-    }
 
 }
