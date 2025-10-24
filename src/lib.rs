@@ -159,7 +159,6 @@ mod state_handlers {
                 new_state: CsvState::CustomEscapeSeen,
                 action: Action::NoOp,
             }),
-            // Normal data
             Some(ch) => Ok(StateTransition {
                 new_state: CsvState::InQuotedField,
                 action: Action::AppendChar(ch),
@@ -273,11 +272,10 @@ impl FieldBuilder {
 
         Self {
             buffer: Vec::with_capacity(256),
-            quote_encoded: encoded.as_bytes().to_vec(), // Store only the actual encoded bytes
+            quote_encoded: encoded.as_bytes().to_vec(),
         }
     }
 
-    // Create a new FieldBuilder reusing an existing quote_encoded to avoid allocation
     fn new_with_quote_encoded(quote_encoded: Vec<u8>) -> Self {
         Self {
             buffer: Vec::with_capacity(256),
@@ -288,7 +286,6 @@ impl FieldBuilder {
 
     #[inline(always)]
     fn append_char(&mut self, ch: char) {
-        // Proper UTF-8 encoding for characters
         let mut utf8_buf = [0u8; 4];
         let encoded = ch.encode_utf8(&mut utf8_buf);
         self.buffer.extend_from_slice(encoded.as_bytes());
@@ -308,7 +305,6 @@ impl FieldBuilder {
 
     #[inline]
     fn reset(&mut self) {
-        // Clear the buffer, reusing the existing allocated capacity.
         self.buffer.clear();
     }
 }
@@ -386,7 +382,6 @@ impl CsvChunkParser {
         self.row_builder.add_field(completed_builder)?;
 
         // 4. The new field_builder already has the quote_encoded and an empty buffer.
-        // No reset needed since it's already clean.
 
         Ok(())
     }
@@ -430,14 +425,11 @@ impl CsvChunkParser {
                 Action::CommitRow => {
                     let row = self.commit_row()?;
                     if Self::is_empty_row(&row) {
-                        // Skip empty rows
                     } else {
                         completed_rows.push(row);
                     }
                 },
-                Action::NoOp => {
-                    // No operation needed
-                    }
+                Action::NoOp => {}
             }
             
             // 3. Update the state
@@ -705,9 +697,7 @@ mod tests {
 
     #[test]
     fn test_scenario_6b_custom_escaping() -> Result<(), CsvError> {
-        // Config: quote='\"', escape='\\'
         let config = CsvConfig { delimiter: ',', quote: '"', escape: '\\' };
-        // The literal Rust string below represents: A,"Value with \"Escaped\" Quote",B\n
         let chunks = vec!["A,\"Value with \\\"Escaped\\\" Quote\",B\n"];
         let rows = parse_streaming_full(&chunks, config)?;
 
@@ -722,10 +712,9 @@ mod tests {
     fn test_utf8_handling() -> Result<(), CsvError> {
         let config = CsvConfig::default();
 
-        // Test various UTF-8 characters: emojis, accented chars, symbols
         let chunks = vec![
-            "Hello,🌟,café,ñoño,тест\n",  // Emojis, accented chars, Cyrillic
-            "\"Field with 🌟 emoji\",normal,\"🎉🎊\"\n",  // Quoted fields with emojis
+            "Hello,🌟,café,ñoño,тест\n",
+            "\"Field with 🌟 emoji\",normal,\"🎉🎊\"\n",
         ];
 
         let rows = parse_streaming_full(&chunks, config)?;
@@ -741,10 +730,9 @@ mod tests {
     fn test_utf8_multibyte_chars() -> Result<(), CsvError> {
         let config = CsvConfig::default();
 
-        // Test characters that use different byte lengths in UTF-8
         let chunks = vec![
-            "a,é,€,𝄞,🎵\n",  // 1, 2, 3, 4, 4 byte UTF-8 sequences
-            "\"𝄞 G-clef\",\"🎵 music note\"\n",  // Multi-byte chars in quoted fields
+            "a,é,€,𝄞,🎵\n",
+            "\"𝄞 G-clef\",\"🎵 music note\"\n",
         ];
 
         let rows = parse_streaming_full(&chunks, config)?;
